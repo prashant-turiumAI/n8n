@@ -1,5 +1,5 @@
 import { Logger } from '@n8n/backend-common';
-import { GlobalConfig } from '@n8n/config';
+import { GlobalConfig, TemporalConfig } from '@n8n/config';
 import type { Project, User, CreateExecutionPayload } from '@n8n/db';
 import { ExecutionRepository, WorkflowRepository } from '@n8n/db';
 import { Service } from '@n8n/di';
@@ -33,6 +33,8 @@ import { TestWebhooks } from '@/webhooks/test-webhooks';
 import * as WorkflowExecuteAdditionalData from '@/workflow-execute-additional-data';
 import { WorkflowRunner } from '@/workflow-runner';
 import type { WorkflowRequest } from '@/workflows/workflow.request';
+import { startWorkflowExecution } from '@n8n/temporal-worker';
+import type { WorkflowExecutionInput } from '@n8n/temporal-worker';
 
 @Service()
 export class WorkflowExecutionService {
@@ -47,6 +49,7 @@ export class WorkflowExecutionService {
 		private readonly globalConfig: GlobalConfig,
 		private readonly subworkflowPolicyChecker: SubworkflowPolicyChecker,
 		private readonly executionDataService: ExecutionDataService,
+		private readonly temporalConfig: TemporalConfig,
 	) {}
 
 	async runWorkflow(
@@ -239,6 +242,46 @@ export class WorkflowExecutionService {
 				});
 			}
 
+			// Check if Temporal is enabled
+			if (this.temporalConfig.enabled) {
+				this.logger.info('Executing workflow via Temporal', {
+					workflowId: data.workflowData.id,
+					workflowName: data.workflowData.name,
+				});
+
+				// Convert n8n workflow to Temporal workflow input
+				const temporalInput: WorkflowExecutionInput = {
+					nodes: data.workflowData.nodes.map((node) => ({
+						id: node.id,
+						name: node.name,
+						type: node.type,
+						typeVersion: node.typeVersion,
+						position: node.position,
+						parameters: node.parameters,
+						disabled: node.disabled,
+						notes: node.notes,
+					})),
+					connections: data.workflowData.connections || {},
+					pinData: data.pinData,
+					executionData: data.runData,
+				};
+
+				// Start Temporal workflow
+				const temporalWorkflowId = await startWorkflowExecution(
+					temporalInput,
+					`n8n-${data.workflowData.id}-${Date.now()}`,
+				);
+
+				this.logger.info('Temporal workflow started', {
+					temporalWorkflowId,
+					n8nWorkflowId: data.workflowData.id,
+				});
+
+				// Return the Temporal workflow ID as the execution ID
+				return { executionId: temporalWorkflowId };
+			}
+
+			// Fallback to regular n8n execution
 			const executionId = await this.workflowRunner.run(data);
 			return { executionId };
 		}

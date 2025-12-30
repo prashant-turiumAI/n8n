@@ -1,0 +1,77 @@
+{
+  "name": "@n8n/temporal-worker",
+  "version": "2.2.0",
+  "description": "Temporal worker for executing n8n workflows",
+  "scripts": {
+    "clean": "rimraf dist .turbo",
+    "start": "node dist/start.js",
+    "dev": "pnpm build && pnpm start",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p ./tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "format": "biome format --write src",
+    "format:check": "biome ci src",
+    "test": "jest",
+    "test:unit": "jest",
+    "test:watch": "jest --watch",
+    "test:http": "tsx src/test-http-node.ts",
+    "test:generate": "tsx src/test-generate-flowfile.ts",
+    "test:update": "tsx src/test-update-attribute.ts",
+    "test:merge": "tsx src/test-merge-content.ts",
+    "test:extract": "tsx src/test-extract-text.ts",
+    "test:convert": "tsx src/test-convert-record.ts",
+    "test:split": "tsx src/test-split-json.ts",
+    "test:replace": "tsx src/test-replace-text.ts",
+    "test:email": "tsx src/test-put-email.ts",
+    "test:executesql": "tsx src/test-execute-sql.ts",
+    "test:putsql": "tsx src/test-put-sql.ts",
+    "test:query": "tsx src/test-query-record.ts",
+    "test:route": "tsx src/test-route-on-attribute.ts",
+    "test:mergerecord": "tsx src/test-merge-record.ts",
+    "test:splitrecord": "tsx src/test-split-record.ts",
+    "test:jsl": "tsx src/test-jsl-transform-json.ts",
+    "test:jolt": "tsx src/test-jolt-transform-json.ts",
+    "test:modifybytes": "tsx src/test-modify-bytes.ts",
+    "test:log": "tsx src/test-log-attribute.ts",
+    "test:jsonpath": "tsx src/test-evaluate-jsonpath.ts",
+    "lint": "eslint . --quiet",
+    "lint:fix": "eslint . --fix",
+    "watch": "tsc-watch -p tsconfig.build.json --onCompilationComplete \"tsc-alias -p tsconfig.build.json\""
+  },
+  "main": "dist/start.js",
+  "module": "src/start.ts",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "exports": {
+    "./start": {
+      "require": "./dist/start.js",
+      "import": "./src/start.ts",
+      "types": "./dist/start.d.ts"
+    },
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./src/index.ts",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "@n8n/config": "workspace:*",
+    "@n8n/di": "workspace:*",
+    "@n8n/errors": "workspace:*",
+    "@temporalio/worker": "^1.12.0",
+    "@temporalio/client": "^1.12.0",
+    "@temporalio/workflow": "^1.12.0",
+    "@temporalio/activity": "^1.12.0",
+    "mysql2": "catalog:",
+    "n8n-core": "workspace:*",
+    "n8n-workflow": "workspace:*",
+    "nodemailer": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@n8n/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "tsx": "catalog:"
+  }
+}
