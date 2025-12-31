@@ -53,6 +53,9 @@
     "@temporalio/client": "^1.10.0",
     "@temporalio/workflow": "^1.10.0",
     "@temporalio/activity": "^1.10.0",
+    "axios": "1.12.0",
+    "dotenv": "^17.2.3",
+    "form-data": "^4.0.1",
     "n8n-workflow": "workspace:*",
     "n8n-core": "workspace:*"
   },

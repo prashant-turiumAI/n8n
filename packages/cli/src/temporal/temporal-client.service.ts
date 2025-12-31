@@ -26,9 +26,10 @@ export class TemporalClientService {
 			return this.client;
 		}
 
-		if (!this.temporalConfig.enabled) {
-			throw new Error('Temporal is not enabled');
-		}
+		// Skip enabled check - Temporal is always enabled in code
+		// if (!this.temporalConfig.enabled) {
+		// 	throw new Error('Temporal is not enabled');
+		// }
 
 		try {
 			const connectionOptions: Parameters<typeof Connection.connect>[0] = {
@@ -61,7 +62,13 @@ export class TemporalClientService {
 
 			return this.client;
 		} catch (error) {
-			this.logger.error('Failed to connect to Temporal', { error });
+			this.logger.error('Failed to connect to Temporal', {
+				error,
+				errorMessage: error instanceof Error ? error.message : String(error),
+				errorStack: error instanceof Error ? error.stack : undefined,
+				address: this.temporalConfig.host,
+				namespace: this.temporalConfig.namespace,
+			});
 			throw error;
 		}
 	}

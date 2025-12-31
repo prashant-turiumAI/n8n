@@ -170,7 +170,8 @@ export class WorkflowRunner {
 
 		// Check if Temporal should be used for this execution
 		// TODO: Add useTemporal to IWorkflowSettings interface for per-workflow control
-		const useTemporal = this.temporalConfig.enabled;
+		// Hardcoded to true to always use Temporal
+		const useTemporal = true; // this.temporalConfig.enabled;
 
 		if (useTemporal) {
 			try {
@@ -236,6 +237,8 @@ export class WorkflowRunner {
 			} catch (error) {
 				this.logger.error('Failed to start Temporal workflow execution', {
 					error,
+					errorMessage: error instanceof Error ? error.message : String(error),
+					errorStack: error instanceof Error ? error.stack : undefined,
 					executionId,
 					workflowId,
 				});

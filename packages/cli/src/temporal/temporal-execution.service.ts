@@ -73,7 +73,13 @@ export class TemporalExecutionService {
 		} catch (error) {
 			this.logger.error('Failed to start Temporal workflow', {
 				error,
+				errorMessage: error instanceof Error ? error.message : String(error),
+				errorStack: error instanceof Error ? error.stack : undefined,
 				n8nExecutionId: executionId,
+				workflowId: executionData.workflowData.id,
+				temporalHost: this.temporalConfig.host,
+				temporalNamespace: this.temporalConfig.namespace,
+				taskQueue: this.temporalConfig.taskQueue,
 			});
 			throw error;
 		}
