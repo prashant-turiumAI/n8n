@@ -7,8 +7,7 @@ import type {
 	IConnections,
 } from 'n8n-workflow';
 
-// This will be populated when activities are implemented
-// For now, we'll create a stub interface
+// Activities interface for Temporal workflow
 interface Activities {
 	executeNode: (input: {
 		workflowData: IWorkflowBase;
@@ -23,9 +22,15 @@ interface Activities {
 			nodeName: string;
 		};
 	}>;
+	resolveCredential: (
+		credentialId: string,
+		userId: string,
+		n8nApiUrl: string,
+		workerSecret: string,
+	) => Promise<Record<string, unknown>>;
 }
 
-const { executeNode } = proxyActivities<Activities>({
+const { executeNode, resolveCredential } = proxyActivities<Activities>({
 	startToCloseTimeout: '10 minutes',
 	retry: {
 		initialInterval: '1s',
@@ -40,6 +45,8 @@ export interface WorkflowExecutionInput {
 	executionId: string;
 	startNode?: INode;
 	destinationNode?: string;
+	n8nApiUrl?: string; // Base URL for n8n API (e.g., http://localhost:5678)
+	workerSecret?: string; // Secret for authenticating with n8n's internal credential API
 }
 
 export interface WorkflowExecutionOutput {

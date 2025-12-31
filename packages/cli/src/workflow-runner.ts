@@ -3,7 +3,7 @@
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Logger } from '@n8n/backend-common';
-import { ExecutionsConfig } from '@n8n/config';
+import { ExecutionsConfig, TemporalConfig } from '@n8n/config';
 import { ExecutionRepository } from '@n8n/db';
 import { Container, Service } from '@n8n/di';
 import type { ExecutionLifecycleHooks } from 'n8n-core';
@@ -38,6 +38,8 @@ import {
 import { ExecutionDataService } from '@/executions/execution-data.service';
 import { CredentialsPermissionChecker } from '@/executions/pre-execution-checks';
 import { ManualExecutionService } from '@/manual-execution.service';
+import { ExecutionMetadataService } from '@/services/execution-metadata.service';
+import { TemporalExecutionService } from '@/temporal';
 import { NodeTypes } from '@/node-types';
 import type { ScalingService } from '@/scaling/scaling.service';
 import type { Job, JobData } from '@/scaling/scaling.types';
@@ -63,6 +65,8 @@ export class WorkflowRunner {
 		private readonly executionDataService: ExecutionDataService,
 		private readonly eventService: EventService,
 		private readonly executionsConfig: ExecutionsConfig,
+		private readonly temporalConfig: TemporalConfig,
+		private readonly executionMetadataService: ExecutionMetadataService,
 	) {}
 
 	/** The process did error */
@@ -162,6 +166,94 @@ export class WorkflowRunner {
 
 		if (responsePromise) {
 			this.activeExecutions.attachResponsePromise(executionId, responsePromise);
+		}
+
+		// Check if Temporal should be used for this execution
+		// TODO: Add useTemporal to IWorkflowSettings interface for per-workflow control
+		const useTemporal = this.temporalConfig.enabled;
+
+		if (useTemporal) {
+			try {
+				// Load static data if requested (same as regular execution)
+				if (loadStaticData === true && workflowId) {
+					data.workflowData.staticData =
+						await this.workflowStaticDataService.getStaticDataById(workflowId);
+				}
+
+				// Set up lifecycle hooks for Temporal execution
+				// This ensures events, push notifications, and external hooks are called
+				const lifecycleHooks = getLifecycleHooksForRegularMain(data, executionId);
+
+				// Call workflowExecuteBefore hook to trigger:
+				// - Event emissions (workflow-pre-execute)
+				// - Push notifications to UI (executionStarted)
+				// - External hooks (workflow.preExecute)
+				// - Module hooks
+				await lifecycleHooks.runHook('workflowExecuteBefore', [undefined, data.executionData]);
+
+				// Start Temporal workflow
+				const temporalExecutionService = Container.get(TemporalExecutionService);
+				const { workflowId: temporalWorkflowId } = await temporalExecutionService.startWorkflow(
+					data,
+					executionId,
+				);
+
+				// Store mapping: n8n executionId <-> Temporal workflowId
+				await this.executionMetadataService.save(executionId, {
+					temporalWorkflowId,
+				});
+
+				this.logger.info('Workflow execution started in Temporal', {
+					executionId,
+					temporalWorkflowId,
+					workflowId,
+				});
+
+				// Mark execution as running
+				await this.executionRepository.setRunning(executionId);
+
+				// Set up post-execution promise handling for Temporal executions
+				// This ensures error handling works correctly
+				const postExecutePromise = this.activeExecutions.getPostExecutePromise(executionId);
+				postExecutePromise.catch((error) => {
+					if (error instanceof ExecutionCancelledError) return;
+					this.errorReporter.error(error, {
+						extra: { executionId, workflowId },
+					});
+					this.logger.error('There was an error in the post-execution promise (Temporal)', {
+						error,
+						executionId,
+						workflowId,
+					});
+				});
+
+				// Note: workflowExecuteAfter hook will be called when we implement
+				// execution history retrieval and result processing in Phase 5
+
+				// Return executionId - execution will continue in Temporal
+				// Note: Execution status will be updated when we implement history retrieval
+				return executionId;
+			} catch (error) {
+				this.logger.error('Failed to start Temporal workflow execution', {
+					error,
+					executionId,
+					workflowId,
+				});
+
+				// Fall back to regular execution on error
+				// Ensure we still call workflowExecuteBefore if it wasn't called yet
+				const lifecycleHooks = getLifecycleHooksForRegularMain(data, executionId);
+				try {
+					await lifecycleHooks.runHook('workflowExecuteBefore', [undefined, data.executionData]);
+				} catch (hookError) {
+					this.logger.warn('Failed to call workflowExecuteBefore hook during fallback', {
+						error: hookError,
+						executionId,
+					});
+				}
+
+				this.logger.warn('Falling back to regular execution mode', { executionId });
+			}
 		}
 
 		// @TODO: Reduce to true branch once feature is stable

@@ -627,6 +627,8 @@ export async function executeWebhook(
 		}
 
 		// Start now to run the workflow
+		// Note: Temporal execution is automatically handled by WorkflowRunner
+		// when temporalConfig.enabled is true. No special handling needed here.
 		executionId = await Container.get(WorkflowRunner).run(
 			runData,
 			true,

@@ -5,7 +5,7 @@ import {
 	TransferWorkflowBodyDto,
 } from '@n8n/api-types';
 import { Logger } from '@n8n/backend-common';
-import { GlobalConfig } from '@n8n/config';
+import { GlobalConfig, TemporalConfig } from '@n8n/config';
 import type { Project } from '@n8n/db';
 import {
 	SharedWorkflow,
@@ -59,6 +59,8 @@ import * as utils from '@/utils';
 import * as WorkflowHelpers from '@/workflow-helpers';
 import { userHasScopes } from '@/permissions.ee/check-access';
 
+import { TemporalExecutionService } from '@/temporal';
+import { ExecutionMetadataService } from '@/services/execution-metadata.service';
 import { WorkflowExecutionService } from './workflow-execution.service';
 import { WorkflowFinderService } from './workflow-finder.service';
 import { WorkflowHistoryService } from './workflow-history/workflow-history.service';
@@ -92,6 +94,9 @@ export class WorkflowsController {
 		private readonly folderService: FolderService,
 		private readonly workflowFinderService: WorkflowFinderService,
 		private readonly executionService: ExecutionService,
+		private readonly temporalConfig: TemporalConfig,
+		private readonly temporalExecutionService: TemporalExecutionService,
+		private readonly executionMetadataService: ExecutionMetadataService,
 	) {}
 
 	@Post('/')
@@ -603,6 +608,8 @@ export class WorkflowsController {
 			req.body.workflowData.nodes = safeWorkflow.nodes;
 		}
 
+		// Note: Temporal execution is automatically handled by WorkflowRunner
+		// when temporalConfig.enabled is true. No special handling needed here.
 		return await this.workflowExecutionService.executeManually(
 			req.body,
 			req.user,

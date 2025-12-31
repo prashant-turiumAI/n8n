@@ -1,6 +1,6 @@
 import { NativeConnection, Worker } from '@temporalio/worker';
 import type { TemporalConfig } from '@n8n/config';
-import { executeNodeActivity } from './activities';
+import { executeNodeActivity, resolveCredentialActivity } from './activities';
 
 /**
  * Creates a Temporal worker instance
@@ -24,6 +24,7 @@ export async function createWorker(config: TemporalConfig): Promise<Worker> {
 		workflowsPath,
 		activities: {
 			executeNode: executeNodeActivity,
+			resolveCredential: resolveCredentialActivity,
 		},
 	});
 }
