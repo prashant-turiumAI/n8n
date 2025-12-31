@@ -32,6 +32,7 @@ import { SentryConfig } from './configs/sentry.config';
 import { SsoConfig } from './configs/sso.config';
 import { TagsConfig } from './configs/tags.config';
 import { TemplatesConfig } from './configs/templates.config';
+import { TemporalConfig } from './configs/temporal.config';
 import { UserManagementConfig } from './configs/user-management.config';
 import { VersionNotificationsConfig } from './configs/version-notifications.config';
 import { WorkflowHistoryCompactionConfig } from './configs/workflow-history-compaction.config';
@@ -49,6 +50,7 @@ export { SecurityConfig } from './configs/security.config';
 export { ExecutionsConfig } from './configs/executions.config';
 export { LOG_SCOPES } from './configs/logging.config';
 export type { LogScope } from './configs/logging.config';
+export { TemporalConfig } from './configs/temporal.config';
 export { WorkflowsConfig } from './configs/workflows.config';
 export * from './custom-types';
 export { DeploymentConfig } from './configs/deployment.config';
@@ -223,4 +225,7 @@ export class GlobalConfig {
 
 	@Nested
 	workflowHistoryCompaction: WorkflowHistoryCompactionConfig;
+
+	@Nested
+	temporal: TemporalConfig;
 }

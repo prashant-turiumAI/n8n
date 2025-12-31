@@ -1,0 +1,8 @@
+# Temporal data
+temporal-postgres-data/
+
+# Config overrides (if any)
+temporal-config/*.yaml
+!temporal-config/.gitkeep
+
+

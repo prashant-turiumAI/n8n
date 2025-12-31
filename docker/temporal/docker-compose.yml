@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: temporal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_USER: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    # Port mapping commented out - PostgreSQL is only accessed internally by Temporal
+    # Uncomment if you need external access to PostgreSQL
+    # ports:
+    #   - "5433:5432"  # Using 5433 to avoid conflict with existing PostgreSQL
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U temporal']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - temporal-network
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: temporal-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgres
+      - SKIP_DB_CREATE=false
+      - SKIP_DB_SETUP=false
+      - SKIP_DEFAULT_NAMESPACE_CREATION=false
+    ports:
+      - '7233:7233' # gRPC
+      - '8088:8088' # HTTP
+    # volumes:
+    #   - ./temporal-config:/etc/temporal/config  # Commented out - auto-setup handles config
+    networks:
+      - temporal-network
+    healthcheck:
+      test: ['CMD-SHELL', "tctl cluster health | grep -q 'SERVING' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  temporal-ui:
+    image: temporalio/ui:2.24.0
+    container_name: temporal-ui
+    restart: unless-stopped
+    depends_on:
+      - temporal
+    ports:
+      - '8080:8080'
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000,http://localhost:5678
+    networks:
+      - temporal-network
+
+volumes:
+  temporal-postgres-data:
+    driver: local
+
+networks:
+  temporal-network:
+    driver: bridge
