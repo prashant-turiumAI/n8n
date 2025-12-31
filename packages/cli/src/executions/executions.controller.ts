@@ -11,6 +11,10 @@ import { validateExecutionUpdatePayload } from './validation';
 import { BadRequestError } from '@/errors/response-errors/bad-request.error';
 import { NotFoundError } from '@/errors/response-errors/not-found.error';
 import { License } from '@/license';
+import { ExecutionMetadataService } from '@/services/execution-metadata.service';
+import { TemporalExecutionService } from '@/temporal';
+import { TemporalHistoryTransformerService } from '@/temporal';
+import { WorkflowRepository } from '@n8n/db';
 import { isPositiveInteger } from '@/utils';
 import { WorkflowSharingService } from '@/workflows/workflow-sharing.service';
 
@@ -21,6 +25,10 @@ export class ExecutionsController {
 		private readonly enterpriseExecutionService: EnterpriseExecutionsService,
 		private readonly workflowSharingService: WorkflowSharingService,
 		private readonly license: License,
+		private readonly executionMetadataService: ExecutionMetadataService,
+		private readonly temporalExecutionService: TemporalExecutionService,
+		private readonly temporalHistoryTransformer: TemporalHistoryTransformerService,
+		private readonly workflowRepository: WorkflowRepository,
 	) {}
 
 	private async getAccessibleWorkflowIds(user: User, scope: Scope) {
@@ -97,6 +105,60 @@ export class ExecutionsController {
 
 		if (workflowIds.length === 0) throw new NotFoundError('Execution not found');
 
+		const executionId = req.params.id;
+
+		// Check if execution is Temporal-based
+		const metadata = await this.executionMetadataService.get(executionId);
+		const temporalWorkflowId = metadata.temporalWorkflowId;
+
+		if (temporalWorkflowId) {
+			// This is a Temporal execution - fetch from Temporal and transform
+			try {
+				// Get workflow data for the execution
+				const execution = await this.executionService.findOne(req, workflowIds);
+				if (!execution) {
+					throw new NotFoundError('Execution not found');
+				}
+
+				// Get workflow data
+				const workflow = await this.workflowRepository.get({ id: execution.workflowId });
+				if (!workflow) {
+					throw new NotFoundError('Workflow not found');
+				}
+
+				// Fetch Temporal history and result
+				const [history, result] = await Promise.all([
+					this.temporalExecutionService.getWorkflowHistory(temporalWorkflowId),
+					this.temporalExecutionService
+						.getWorkflowResult<{
+							runData?: Record<string, any>;
+							status?: string;
+							error?: string;
+						}>(temporalWorkflowId)
+						.catch(() => null), // Result might not be available if still running
+				]);
+
+				// Transform Temporal history to n8n execution format
+				return this.temporalHistoryTransformer.transformHistoryToExecution(
+					executionId,
+					temporalWorkflowId,
+					history,
+					{
+						id: workflow.id,
+						name: workflow.name,
+					},
+					result || undefined,
+				);
+			} catch (error) {
+				// If Temporal fetch fails, fall back to regular execution retrieval
+				// This handles cases where Temporal might be unavailable or execution doesn't exist in Temporal
+				return this.license.isSharingEnabled()
+					? await this.enterpriseExecutionService.findOne(req, workflowIds)
+					: await this.executionService.findOne(req, workflowIds);
+			}
+		}
+
+		// Regular execution - use existing flow
 		return this.license.isSharingEnabled()
 			? await this.enterpriseExecutionService.findOne(req, workflowIds)
 			: await this.executionService.findOne(req, workflowIds);

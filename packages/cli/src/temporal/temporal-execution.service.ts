@@ -1,10 +1,14 @@
 import { Service } from '@n8n/di';
 import { Logger } from '@n8n/backend-common';
 import type { IWorkflowExecutionDataProcess } from 'n8n-workflow';
-import type { WorkflowExecutionHistory } from '@temporalio/client';
+import type { WorkflowHandle } from '@temporalio/client';
+
+// Type for workflow history returned by fetchHistory()
+type TemporalHistory = Awaited<ReturnType<WorkflowHandle['fetchHistory']>>;
 import { TemporalClientService } from './temporal-client.service';
 import { TemporalConfig, GlobalConfig } from '@n8n/config';
-import { n8nWorkflowExecution } from '@n8n/temporal-worker/workflows';
+// Import workflow directly from source (workspace package)
+import { n8nWorkflowExecution } from '@n8n/temporal-worker/src/workflows';
 import { UrlService } from '@/services/url.service';
 
 /**
@@ -80,10 +84,11 @@ export class TemporalExecutionService {
 	 * @param workflowId - The Temporal workflow ID
 	 * @returns Workflow execution history
 	 */
-	async getWorkflowHistory(workflowId: string): Promise<WorkflowExecutionHistory> {
+	async getWorkflowHistory(workflowId: string): Promise<TemporalHistory> {
 		const client = await this.temporalClient.connect();
 		const handle = client.workflow.getHandle(workflowId);
-		return await handle.fetchHistory();
+		const history = await handle.fetchHistory();
+		return history;
 	}
 
 	/**

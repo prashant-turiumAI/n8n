@@ -38,6 +38,11 @@
       "require": "./dist/workflows/index.js",
       "import": "./src/workflows/index.ts",
       "types": "./dist/workflows/index.d.ts"
+    },
+    "./src/workflows": {
+      "require": "./dist/workflows/index.js",
+      "import": "./src/workflows/index.ts",
+      "types": "./dist/workflows/index.d.ts"
     }
   },
   "dependencies": {

@@ -20,4 +20,22 @@ export class ExecutionMetadataService {
 			conflictPaths: { executionId: true, key: true },
 		});
 	}
+
+	/**
+	 * Retrieves execution metadata by executionId.
+	 * @param executionId - The execution ID
+	 * @returns Record of metadata key-value pairs
+	 */
+	async get(executionId: string): Promise<Record<string, string>> {
+		const metadata = await this.executionMetadataRepository.find({
+			where: { executionId },
+		});
+
+		const result: Record<string, string> = {};
+		for (const item of metadata) {
+			result[item.key] = item.value;
+		}
+
+		return result;
+	}
 }

@@ -52,11 +52,17 @@ void (async function start() {
 			host: config.temporal.host,
 			namespace: config.temporal.namespace,
 			taskQueue: config.temporal.taskQueue,
+			tlsEnabled: config.temporal.tlsEnabled,
 		});
 
 		worker = await createWorker(config.temporal);
 
-		console.log('Temporal worker started successfully');
+		console.log('Temporal worker started successfully', {
+			host: config.temporal.host,
+			namespace: config.temporal.namespace,
+			taskQueue: config.temporal.taskQueue,
+		});
+
 		await worker.run();
 	} catch (error) {
 		const err = ensureError(error);
