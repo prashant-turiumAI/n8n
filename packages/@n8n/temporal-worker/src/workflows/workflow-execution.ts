@@ -15,6 +15,8 @@ interface Activities {
 		inputData: INodeExecutionData[][];
 		executionId: string;
 		userId: string;
+		n8nApiUrl?: string;
+		workerSecret?: string;
 	}) => Promise<{
 		data: INodeExecutionData[][];
 		error?: {
@@ -88,6 +90,8 @@ export async function n8nWorkflowExecution(
 			executionGraph,
 			userId || 'system',
 			executionId,
+			input.n8nApiUrl,
+			input.workerSecret,
 		);
 
 		return {
@@ -204,6 +208,8 @@ async function executeWorkflowGraph(
 	executionGraph: INode[],
 	userId: string,
 	executionId: string,
+	n8nApiUrl?: string,
+	workerSecret?: string,
 ): Promise<Record<string, any>> {
 	const nodeResults = new Map<string, INodeExecutionData[][]>();
 	const executedNodes = new Set<string>();
@@ -219,13 +225,31 @@ async function executeWorkflowGraph(
 
 		// Handle control flow nodes
 		if (node.type === 'n8n-nodes-base.if') {
-			await handleIfNode(workflowData, node, nodeResults, executedNodes, userId, executionId);
+			await handleIfNode(
+				workflowData,
+				node,
+				nodeResults,
+				executedNodes,
+				userId,
+				executionId,
+				n8nApiUrl,
+				workerSecret,
+			);
 			// Continue with next node - branches are handled recursively
 			continue;
 		}
 
 		if (node.type === 'n8n-nodes-base.switch') {
-			await handleSwitchNode(workflowData, node, nodeResults, executedNodes, userId, executionId);
+			await handleSwitchNode(
+				workflowData,
+				node,
+				nodeResults,
+				executedNodes,
+				userId,
+				executionId,
+				n8nApiUrl,
+				workerSecret,
+			);
 			// Continue with next node - branches are handled recursively
 			continue;
 		}
@@ -237,6 +261,8 @@ async function executeWorkflowGraph(
 			inputData,
 			executionId,
 			userId,
+			n8nApiUrl,
+			workerSecret,
 		});
 
 		if (result.error) {
@@ -332,6 +358,8 @@ async function handleIfNode(
 	executedNodes: Set<string>,
 	userId: string,
 	executionId: string,
+	n8nApiUrl?: string,
+	workerSecret?: string,
 ): Promise<void> {
 	log.info('Handling IF node', {
 		nodeName: node.name,
@@ -348,6 +376,8 @@ async function handleIfNode(
 		inputData,
 		executionId,
 		userId,
+		n8nApiUrl,
+		workerSecret,
 	});
 
 	if (result.error) {
@@ -382,6 +412,8 @@ async function handleIfNode(
 					executedNodes,
 					userId,
 					executionId,
+					n8nApiUrl,
+					workerSecret,
 				);
 			}),
 		);
@@ -399,6 +431,8 @@ async function handleSwitchNode(
 	executedNodes: Set<string>,
 	userId: string,
 	executionId: string,
+	n8nApiUrl?: string,
+	workerSecret?: string,
 ): Promise<void> {
 	log.info('Handling Switch node', {
 		nodeName: node.name,
@@ -415,6 +449,8 @@ async function handleSwitchNode(
 		inputData,
 		executionId,
 		userId,
+		n8nApiUrl,
+		workerSecret,
 	});
 
 	if (result.error) {
@@ -447,6 +483,8 @@ async function handleSwitchNode(
 					executedNodes,
 					userId,
 					executionId,
+					n8nApiUrl,
+					workerSecret,
 				);
 			}),
 		);
@@ -466,6 +504,8 @@ async function executeBranch(
 	executedNodes: Set<string>,
 	userId: string,
 	executionId: string,
+	n8nApiUrl?: string,
+	workerSecret?: string,
 ): Promise<void> {
 	log.info('Executing branch', {
 		controlFlowNodeName: controlFlowNode.name,
@@ -505,6 +545,8 @@ async function executeBranch(
 			inputData,
 			executionId,
 			userId,
+			n8nApiUrl,
+			workerSecret,
 		});
 
 		if (result.error) {
@@ -524,7 +566,16 @@ async function executeBranch(
 
 		// Recursively handle control flow in child nodes
 		if (childNode.type === 'n8n-nodes-base.if') {
-			await handleIfNode(workflowData, childNode, nodeResults, executedNodes, userId, executionId);
+			await handleIfNode(
+				workflowData,
+				childNode,
+				nodeResults,
+				executedNodes,
+				userId,
+				executionId,
+				n8nApiUrl,
+				workerSecret,
+			);
 		} else if (childNode.type === 'n8n-nodes-base.switch') {
 			await handleSwitchNode(
 				workflowData,
@@ -533,6 +584,8 @@ async function executeBranch(
 				executedNodes,
 				userId,
 				executionId,
+				n8nApiUrl,
+				workerSecret,
 			);
 		} else {
 			// Continue with downstream nodes
@@ -548,6 +601,8 @@ async function executeBranch(
 							executedNodes,
 							userId,
 							executionId,
+							n8nApiUrl,
+							workerSecret,
 						);
 					}
 				}
@@ -568,6 +623,8 @@ async function executeBranchNode(
 	executedNodes: Set<string>,
 	userId: string,
 	executionId: string,
+	n8nApiUrl?: string,
+	workerSecret?: string,
 ): Promise<void> {
 	if (executedNodes.has(node.name)) {
 		return;

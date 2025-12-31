@@ -7,6 +7,8 @@ export interface NodeActivityInput {
 	inputData: INodeExecutionData[][];
 	executionId: string;
 	userId: string;
+	n8nApiUrl?: string; // Base URL for n8n API (for credential resolution)
+	workerSecret?: string; // Secret for authenticating with n8n's internal credential API
 }
 
 export interface NodeActivityOutput {
